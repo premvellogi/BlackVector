@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Caption Response Contract",
+  "description": "Contract for the /caption endpoint (F2)",
+  "definitions": {
+    "CaptionResponse": {
+      "type": "object",
+      "required": ["caption", "confidence", "provenance"],
+      "properties": {
+        "caption": { "type": "string", "description": "Scene description" },
+        "confidence": { "$ref": "#/definitions/Confidence" },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "execution_time_ms": { "type": "number" }
+      }
+    },
+    "Confidence": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "method": { "type": "string" },
+        "factors": { "type": "object" }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "required": ["model_name"],
+      "properties": {
+        "model_name": { "type": "string" },
+        "checkpoint_version": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

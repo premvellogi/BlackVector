@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Grounding Response Contract",
+  "description": "Contract for the /grounding endpoint (F3)",
+  "definitions": {
+    "GroundingResponse": {
+      "type": "object",
+      "required": ["boxes", "expression", "confidence", "provenance"],
+      "properties": {
+        "boxes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BoundingBox" }
+        },
+        "expression": { "type": "string", "description": "Input referring expression" },
+        "confidence": { "$ref": "#/definitions/Confidence" },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "execution_time_ms": { "type": "number" }
+      }
+    },
+    "BoundingBox": {
+      "type": "object",
+      "required": ["x_min", "y_min", "x_max", "y_max"],
+      "properties": {
+        "x_min": { "type": "number" },
+        "y_min": { "type": "number" },
+        "x_max": { "type": "number" },
+        "y_max": { "type": "number" },
+        "label": { "type": "string" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "Confidence": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "method": { "type": "string" },
+        "factors": { "type": "object" }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "required": ["model_name"],
+      "properties": {
+        "model_name": { "type": "string" },
+        "checkpoint_version": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Fusion Request/Response Contract",
+  "description": "Contract for the /fusion endpoint (F5 - Mandatory). Must satisfy §6.4 output contract.",
+  "definitions": {
+    "FusionRequest": {
+      "type": "object",
+      "required": ["optical_image", "sar_image"],
+      "properties": {
+        "optical_image": {
+          "type": "string",
+          "format": "binary",
+          "description": "Optical/multispectral image (co-registered)"
+        },
+        "sar_image": {
+          "type": "string",
+          "format": "binary",
+          "description": "SAR image (co-registered with optical)"
+        },
+        "question": {
+          "type": "string",
+          "description": "Optional analysis question"
+        }
+      }
+    },
+    "FusionResponse": {
+      "type": "object",
+      "required": ["fused_answer", "modality_attribution", "confidence", "provenance"],
+      "properties": {
+        "fused_answer": {
+          "type": "string",
+          "description": "Combined answer from both modalities"
+        },
+        "modality_attribution": {
+          "$ref": "#/definitions/ModalityAttribution",
+          "description": "REQUIRED by §6.4 — which parts from optical vs SAR"
+        },
+        "optical_evidence_overlay": {
+          "type": "object",
+          "description": "Separate optical evidence overlay data"
+        },
+        "sar_evidence_overlay": {
+          "type": "object",
+          "description": "Separate SAR evidence overlay data"
+        },
+        "disagreement_flag": {
+          "type": "boolean",
+          "description": "FR9: True if optical and SAR produce conflicting sub-answers"
+        },
+        "disagreement_details": {
+          "type": "string",
+          "description": "Explanation of disagreement when flag is True"
+        },
+        "confidence": { "$ref": "#/definitions/Confidence" },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "execution_time_ms": { "type": "number" }
+      }
+    },
+    "ModalityAttribution": {
+      "type": "object",
+      "required": ["optical_evidence", "sar_evidence", "fused_reasoning"],
+      "properties": {
+        "optical_evidence": {
+          "type": "string",
+          "description": "What the optical image contributed to the answer"
+        },
+        "sar_evidence": {
+          "type": "string",
+          "description": "What the SAR image contributed to the answer"
+        },
+        "fused_reasoning": {
+          "type": "string",
+          "description": "How both modalities were combined"
+        }
+      }
+    },
+    "Confidence": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "method": { "type": "string" },
+        "factors": { "type": "object" }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "required": ["model_name"],
+      "properties": {
+        "model_name": { "type": "string" },
+        "checkpoint_version": { "type": "string" },
+        "input_hash": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "preprocessing": { "type": "object" }
+      }
+    }
+  }
+}
