@@ -3,8 +3,8 @@
 ## Component Adapted
 - **Model:** InternVL2-2B (OpenGVLab/InternVL2-2B)
 - **Adaptation method:** QLoRA (4-bit NF4 quantization, LoRA rank=8, alpha=16)
-- **Target modules:** q_proj, k_proj, v_proj, o_proj (language model decoder only)
-- **Vision encoder:** Frozen (not fine-tuned — critical for 6GB VRAM constraint)
+- **Target modules:** wqkv, wo (InternLM2 fused QKV + output projection)
+- **Vision encoder:** Frozen (not fine-tuned -- critical for 6GB VRAM constraint)
 
 ## Dataset: BigEarthNet.txt
 - **Source:** https://huggingface.co/datasets/BIFOLD-BigEarthNetv2-0/BigEarthNet.txt
@@ -13,9 +13,9 @@
 
 ## Portion Used
 - **Split used:** Official `train` split only (4,674,281 annotations)
-- **Patches sampled:** 29,995 of 229,114
-- **Annotations after sampling:** 612,168
-- **After task capping:** 269,995 instruction entries
+- **Patches sampled:** 4,994 of 229,114
+- **Annotations after sampling:** 102,283
+- **After task capping:** 102,283 instruction entries
 
 ## Sampling Strategy
 - **Method:** Stratified by acquisition country for geographic diversity
@@ -42,21 +42,21 @@ Multi-task instruction tuning:
 - Gradient checkpointing: enabled
 
 ## Train/Validation Split
-- **Train:** 242,996 entries (90%)
-- **Val:** 26,999 entries (10%)
-- **Split method:** Random shuffle with seed 42
+- **Train:** 92,251 entries (90%)
+- **Val:** 10,032 entries (10%)
+- **Split method:** Patch-level split (all annotations for one image stay together) with seed 42
 
 ## Task Distribution After Formatting
 ```
 {
-  "binary": 100000,
-  "bounding box": 60000,
-  "captioning": 29995,
-  "mcq": 80000
+  "binary": 38926,
+  "bounding box": 23411,
+  "captioning": 4994,
+  "mcq": 34952
 }
 ```
 
 ## Checkpoint
 - **Version:** [TO BE FILLED AFTER TRAINING]
-- **Path:** checkpoints/internvl2_2b_bigearthnet_lora/final_adapter/
+- **Path:** checkpoints/satquery-lora/final/
 - **Referenced in provenance (D4):** Yes — every inference response includes checkpoint version

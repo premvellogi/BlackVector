@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -28,18 +27,25 @@ ENV/
 env.bak/
 venv.bak/
 
-# Data & Models & Checkpoints
-data/
+# Model weights & checkpoints (large binary files)
 models/
 checkpoints/
+
+# Bulk data files (not code)
+data/bigearthnet_txt/
+data/imagery_cache/
+data/training/*.jsonl
+data/training/*.json
 *.npz
 *.parquet
 *.pth
-*.pt
 *.bin
 *.safetensors
 *.zst
 *.tar
+
+# Keep data scripts tracked (they ARE code)
+!data/scripts/
 
 # Testing & IDE
 .pytest_cache/
@@ -48,3 +54,7 @@ htmlcov/
 .vscode/
 .idea/
 *.log
+
+# OS files
+Thumbs.db
+.DS_Store

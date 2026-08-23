@@ -13,7 +13,7 @@ from pathlib import Path
 # Base Paths
 # =============================================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 MODELS_DIR = PROJECT_ROOT / "models"
 CHECKPOINTS_DIR = PROJECT_ROOT / "checkpoints"
@@ -28,7 +28,7 @@ INTERNVL2_MODEL_PATH = str(MODELS_DIR / "InternVL2-2B")
 INTERNVL2_HF_NAME = "OpenGVLab/InternVL2-2B"
 
 # LoRA adapter (created after fine-tuning)
-LORA_ADAPTER_PATH = str(CHECKPOINTS_DIR / "internvl2_2b_bigearthnet_lora" / "final_adapter")
+LORA_ADAPTER_PATH = str(CHECKPOINTS_DIR / "satquery-lora" / "final")
 
 # Grounding DINO (downloaded separately for grounding endpoint)
 GROUNDING_DINO_MODEL = "IDEA-Research/grounding-dino-base"
