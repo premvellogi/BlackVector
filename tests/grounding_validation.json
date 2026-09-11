@@ -1,0 +1,226 @@
+{
+  "results": [
+    {
+      "prompt": "buildings",
+      "type": "single",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.5235,
+      "labels": [
+        "buildings"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 2.15,
+      "boxes": [
+        [
+          0.0001,
+          0.0003,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "prompt": "roads",
+      "type": "single",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.5213,
+      "labels": [
+        "roads"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.31,
+      "boxes": [
+        [
+          0.0,
+          0.0004,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "prompt": "water",
+      "type": "single",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.6228,
+      "labels": [
+        "water"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.32,
+      "boxes": [
+        [
+          0.0001,
+          0.0004,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "prompt": "forest",
+      "type": "single",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.7335,
+      "labels": [
+        "forest"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.36,
+      "boxes": [
+        [
+          0.0,
+          0.0003,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "prompt": "agricultural fields",
+      "type": "single",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.7969,
+      "labels": [
+        "agricultural fields"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.32,
+      "boxes": [
+        [
+          0.0001,
+          0.0003,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "prompt": "buildings . roads . water",
+      "type": "multi",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_56_84",
+      "n_boxes": 3,
+      "avg_confidence": 0.2783,
+      "labels": [
+        "water",
+        "buildings",
+        "buildings"
+      ],
+      "unique_labels": [
+        "buildings",
+        "water"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.31
+    },
+    {
+      "prompt": "vegetation . urban areas",
+      "type": "multi",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_56_84",
+      "n_boxes": 3,
+      "avg_confidence": 0.3882,
+      "labels": [
+        "urban areas",
+        "vegetation",
+        "vegetation"
+      ],
+      "unique_labels": [
+        "urban areas",
+        "vegetation"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.3
+    },
+    {
+      "prompt": "forest . agricultural fields . water bodies",
+      "type": "multi",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_56_84",
+      "n_boxes": 4,
+      "avg_confidence": 0.3552,
+      "labels": [
+        "agricultural fields",
+        "forest",
+        "agricultural fields water",
+        "water bodies"
+      ],
+      "unique_labels": [
+        "agricultural fields water",
+        "water bodies",
+        "forest",
+        "agricultural fields"
+      ],
+      "valid_boxes": true,
+      "issues": [],
+      "latency_s": 0.32
+    },
+    {
+      "prompt": "spacecraft landing pad",
+      "type": "edge",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.4647,
+      "latency_s": 0.33
+    },
+    {
+      "prompt": "very small red car",
+      "type": "edge",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.7768,
+      "latency_s": 0.31
+    },
+    {
+      "prompt": "vegetation . water",
+      "type": "cross_patch",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_55_90",
+      "n_boxes": 1,
+      "avg_confidence": 0.5717,
+      "labels": [
+        "vegetation water"
+      ],
+      "latency_s": 0.31
+    },
+    {
+      "prompt": "vegetation . water",
+      "type": "cross_patch",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_56_84",
+      "n_boxes": 2,
+      "avg_confidence": 0.3542,
+      "labels": [
+        "vegetation water",
+        "water"
+      ],
+      "latency_s": 0.31
+    },
+    {
+      "prompt": "vegetation . water",
+      "type": "cross_patch",
+      "patch": "S2A_MSIL2A_20170613T101031_N9999_R022_T33UUP_61_79",
+      "n_boxes": 1,
+      "avg_confidence": 0.5357,
+      "labels": [
+        "vegetation water"
+      ],
+      "latency_s": 0.32
+    }
+  ],
+  "summary": {
+    "total_tests": 13,
+    "errors": 0,
+    "total_detections": 21,
+    "avg_latency_s": 0.46,
+    "verdict": "GOOD"
+  }
+}

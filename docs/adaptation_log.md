@@ -13,9 +13,9 @@
 
 ## Portion Used
 - **Split used:** Official `train` split only (4,674,281 annotations)
-- **Patches sampled:** 4,994 of 229,114
-- **Annotations after sampling:** 102,283
-- **After task capping:** 102,283 instruction entries
+- **Patches sampled:** 494 of 229,114
+- **Annotations after sampling:** 10,127
+- **After task capping:** 10,127 instruction entries
 
 ## Sampling Strategy
 - **Method:** Stratified by acquisition country for geographic diversity
@@ -42,17 +42,17 @@ Multi-task instruction tuning:
 - Gradient checkpointing: enabled
 
 ## Train/Validation Split
-- **Train:** 92,251 entries (90%)
-- **Val:** 10,032 entries (10%)
+- **Train:** 9,129 entries (90%)
+- **Val:** 998 entries (10%)
 - **Split method:** Patch-level split (all annotations for one image stay together) with seed 42
 
 ## Task Distribution After Formatting
 ```
 {
-  "binary": 38926,
-  "bounding box": 23411,
-  "captioning": 4994,
-  "mcq": 34952
+  "binary": 3859,
+  "bounding box": 2313,
+  "captioning": 494,
+  "mcq": 3461
 }
 ```
 

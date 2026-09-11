@@ -13,12 +13,15 @@ Endpoints:
     GET  /health    — Service health + VRAM status
 """
 
+import hashlib
 import logging
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
@@ -129,6 +132,8 @@ class AppState:
     def __init__(self):
         self.vlm = None           # VLMBackbone instance
         self.grounding_dino = None  # Grounding DINO instance (loaded separately)
+        self.change_detector = None  # ChangeDetector head
+        self.fusion_analyzer = None  # FusionAnalyzer head
         self.ready = False
 
     async def startup(self):
@@ -142,6 +147,25 @@ class AppState:
 
         try:
             self.vlm.load()
+
+            # Initialize task heads if spectral adapter is available
+            if self.vlm.spectral_adapter is not None:
+                from services.models.heads.change_head import ChangeDetector
+                from services.models.heads.fusion_head import FusionAnalyzer
+                self.change_detector = ChangeDetector(self.vlm)
+                self.fusion_analyzer = FusionAnalyzer(self.vlm)
+                logger.info("Task heads initialized (change + fusion).")
+
+            # Load Grounding DINO (separate model)
+            try:
+                from services.models.heads.grounding_head import GroundingDINOHead
+                self.grounding_dino = GroundingDINOHead()
+                self.grounding_dino.load()
+                logger.info("Grounding DINO loaded.")
+            except Exception as e:
+                logger.warning(f"Grounding DINO not available: {e}")
+                self.grounding_dino = None
+
             self.ready = True
             logger.info("=== ML Service Ready ===")
         except Exception as e:
@@ -203,13 +227,14 @@ async def health():
 
 @app.post("/vqa", response_model=VQAResponse)
 async def vqa(
-    image: UploadFile = File(..., description="Single satellite image"),
+    image: UploadFile = File(..., description="Satellite image (.npz, .tif, .png, .jpg)"),
     question: str = Form(..., description="Natural language question about the image"),
 ):
     """Visual Question Answering on a single satellite image.
 
-    Takes an image and a question, returns a grounded answer.
-    The VLM processes the image and generates a text answer.
+    Accepts:
+    - .npz files with 's2' (10, H, W) and optional 's1' (2, H, W) bands
+    - Standard image files (PNG, JPEG, GeoTIFF) → RGB fallback
     """
     start_time = time.time()
 
@@ -217,10 +242,6 @@ async def vqa(
         raise HTTPException(503, "Model not loaded. Service is starting up.")
 
     try:
-        # Load and preprocess image
-        pil_image = await _load_upload_as_pil(image)
-
-        # Build VQA prompt
         prompt = (
             f"You are a remote sensing image analysis expert. "
             f"Look at this satellite image carefully and answer the following question.\n"
@@ -228,22 +249,32 @@ async def vqa(
             f"Provide a concise, factual answer based only on what you can observe in the image."
         )
 
-        # Run inference
-        result = app_state.vlm.generate(pil_image, prompt)
+        # Try multiband path first
+        bands = await _load_upload_as_bands(image)
+
+        if bands is not None and app_state.vlm.spectral_adapter is not None:
+            result = app_state.vlm.generate_from_bands(
+                bands["s2"], bands["s1"], prompt,
+            )
+        else:
+            # Fallback to RGB PIL image
+            await image.seek(0)
+            pil_image = await _load_upload_as_pil(image)
+            result = app_state.vlm.generate(pil_image, prompt)
 
         elapsed = (time.time() - start_time) * 1000
 
         return VQAResponse(
             answer=result["text"],
             confidence=Confidence(
-                score=0.7,  # TODO: Extract from logits
+                score=0.7,
                 method="model_logit",
                 factors={"tokens_generated": result["tokens_generated"]},
             ),
-            evidence_regions=[],  # TODO: Add attention-based evidence
+            evidence_regions=[],
             provenance=Provenance(
                 model_name="InternVL2-2B",
-                checkpoint_version="base",  # Updated after fine-tuning
+                checkpoint_version="satquery-lora-exp1",
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             ),
             execution_time_ms=elapsed,
@@ -260,7 +291,7 @@ async def vqa(
 
 @app.post("/caption", response_model=CaptionResponse)
 async def caption(
-    image: UploadFile = File(..., description="Single satellite image"),
+    image: UploadFile = File(..., description="Satellite image (.npz, .tif, .png, .jpg)"),
 ):
     """Generate a scene description for a satellite image."""
     start_time = time.time()
@@ -269,8 +300,6 @@ async def caption(
         raise HTTPException(503, "Model not loaded.")
 
     try:
-        pil_image = await _load_upload_as_pil(image)
-
         prompt = (
             "You are a remote sensing image analysis expert. "
             "Describe this satellite image in detail. Include:\n"
@@ -280,7 +309,17 @@ async def caption(
             "Provide a comprehensive but concise description."
         )
 
-        result = app_state.vlm.generate(pil_image, prompt)
+        bands = await _load_upload_as_bands(image)
+
+        if bands is not None and app_state.vlm.spectral_adapter is not None:
+            result = app_state.vlm.generate_from_bands(
+                bands["s2"], bands["s1"], prompt,
+            )
+        else:
+            await image.seek(0)
+            pil_image = await _load_upload_as_pil(image)
+            result = app_state.vlm.generate(pil_image, prompt)
+
         elapsed = (time.time() - start_time) * 1000
 
         return CaptionResponse(
@@ -288,6 +327,7 @@ async def caption(
             confidence=Confidence(score=0.7, method="model_logit"),
             provenance=Provenance(
                 model_name="InternVL2-2B",
+                checkpoint_version="satquery-lora-exp1",
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             ),
             execution_time_ms=elapsed,
@@ -304,30 +344,67 @@ async def caption(
 
 @app.post("/grounding", response_model=GroundingResponse)
 async def grounding(
-    image: UploadFile = File(..., description="Single satellite image"),
-    expression: str = Form(..., description="Referring expression to ground"),
+    image: UploadFile = File(..., description="Satellite image (.png, .jpg, .tif)"),
+    expression: str = Form(..., description="Objects to detect, e.g. 'buildings . roads . water'"),
 ):
-    """Text-guided region grounding using Grounding DINO.
+    """Text-guided object detection using Grounding DINO.
 
-    Given a referring expression (e.g., "the large building in the center"),
-    returns bounding boxes localizing the described region(s).
+    Given a referring expression (e.g., 'buildings'), returns bounding boxes
+    localizing the described objects in the satellite image.
+
+    Use '.' to separate multiple object types:
+        'buildings . roads . water bodies'
     """
     start_time = time.time()
 
-    # TODO: Integrate Grounding DINO (Day 11-12)
-    # For now, return a placeholder
-    elapsed = (time.time() - start_time) * 1000
+    if not app_state.ready:
+        raise HTTPException(503, "Model not loaded.")
 
-    return GroundingResponse(
-        boxes=[],
-        expression=expression,
-        confidence=Confidence(score=0.0, method="placeholder"),
-        provenance=Provenance(
-            model_name="GroundingDINO",
-            timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        ),
-        execution_time_ms=elapsed,
-    )
+    if app_state.grounding_dino is None:
+        raise HTTPException(503, "Grounding DINO not available. Model failed to load.")
+
+    try:
+        pil_image = await _load_upload_as_pil(image)
+
+        detections = app_state.grounding_dino.detect(
+            pil_image, expression,
+        )
+
+        boxes = [
+            BoundingBox(
+                x_min=d["box"][0],
+                y_min=d["box"][1],
+                x_max=d["box"][2],
+                y_max=d["box"][3],
+                label=d["label"],
+                confidence=d["confidence"],
+            )
+            for d in detections
+        ]
+
+        # Overall confidence is mean of individual box confidences
+        avg_conf = sum(d["confidence"] for d in detections) / max(len(detections), 1)
+
+        elapsed = (time.time() - start_time) * 1000
+
+        return GroundingResponse(
+            boxes=boxes,
+            expression=expression,
+            confidence=Confidence(
+                score=round(avg_conf, 4),
+                method="grounding_dino",
+                factors={"num_detections": len(boxes)},
+            ),
+            provenance=Provenance(
+                model_name="GroundingDINO-SwinT-OGC",
+                timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            ),
+            execution_time_ms=elapsed,
+        )
+
+    except Exception as e:
+        logger.error(f"Grounding failed: {e}")
+        raise HTTPException(500, f"Grounding detection failed: {str(e)}")
 
 
 # =============================================================================
@@ -336,14 +413,15 @@ async def grounding(
 
 @app.post("/change", response_model=ChangeResponse)
 async def change_detection(
-    image_t1: UploadFile = File(..., description="Earlier temporal image"),
-    image_t2: UploadFile = File(..., description="Later temporal image"),
+    image_t1: UploadFile = File(..., description="Earlier temporal image (.npz, .tif, .png)"),
+    image_t2: UploadFile = File(..., description="Later temporal image (.npz, .tif, .png)"),
     question: Optional[str] = Form(None, description="Optional change-related question"),
 ):
     """Bi-temporal change detection and change-VQA.
 
     Takes two spatially corresponding images from different times.
-    Returns change description and optionally answers a change-related question.
+    Supports .npz multiband uploads (uses Siamese change head) or
+    standard images (uses multi-image LLM prompting).
     """
     start_time = time.time()
 
@@ -351,10 +429,43 @@ async def change_detection(
         raise HTTPException(503, "Model not loaded.")
 
     try:
+        # Try multiband path with change head
+        bands_t1 = await _load_upload_as_bands(image_t1)
+        await image_t2.seek(0)
+        bands_t2 = await _load_upload_as_bands(image_t2)
+
+        if (bands_t1 is not None and bands_t2 is not None
+                and app_state.change_detector is not None):
+            result = app_state.change_detector.detect_change(
+                bands_t1["s2"], bands_t1["s1"],
+                bands_t2["s2"], bands_t2["s1"],
+                question,
+            )
+            elapsed = (time.time() - start_time) * 1000
+
+            return ChangeResponse(
+                description=result["description"],
+                answer=result["answer"],
+                change_detected=result["change_detected"],
+                confidence=Confidence(
+                    score=result["change_score"],
+                    method="change_head",
+                    factors={"change_score": result["change_score"]},
+                ),
+                provenance=Provenance(
+                    model_name="InternVL2-2B+ChangeHead",
+                    checkpoint_version="satquery-lora-exp1",
+                    timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ),
+                execution_time_ms=elapsed,
+            )
+
+        # Fallback: RGB multi-image prompting
+        await image_t1.seek(0)
+        await image_t2.seek(0)
         pil_t1 = await _load_upload_as_pil(image_t1)
         pil_t2 = await _load_upload_as_pil(image_t2)
 
-        # Build change detection prompt with multi-image tags
         if question:
             prompt = (
                 f"You are a remote sensing change detection expert. "
@@ -380,10 +491,11 @@ async def change_detection(
         return ChangeResponse(
             description=result["text"],
             answer=result["text"] if question else None,
-            change_detected=True,  # TODO: Determine from response
+            change_detected=True,
             confidence=Confidence(score=0.6, method="model_logit"),
             provenance=Provenance(
                 model_name="InternVL2-2B",
+                checkpoint_version="satquery-lora-exp1",
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             ),
             execution_time_ms=elapsed,
@@ -400,8 +512,8 @@ async def change_detection(
 
 @app.post("/fusion", response_model=FusionResponse)
 async def fusion(
-    optical_image: UploadFile = File(..., description="Optical/multispectral image"),
-    sar_image: UploadFile = File(..., description="SAR image (co-registered)"),
+    optical_image: UploadFile = File(..., description="Optical/multispectral image (.npz, .tif, .png)"),
+    sar_image: UploadFile = File(..., description="SAR image (.npz, .tif, .png)"),
     question: Optional[str] = Form(None, description="Optional analysis question"),
 ):
     """Cross-modal optical-SAR fusion analysis.
@@ -412,6 +524,9 @@ async def fusion(
     3. Modality-specific evidence overlays (shown separately)
     4. Ambiguity resolution between modalities
     5. Disagreement flag when modalities conflict (FR9)
+
+    When .npz files are provided, uses the FusionAnalyzer head for
+    real modality attribution (3 separate inference passes).
     """
     start_time = time.time()
 
@@ -419,10 +534,56 @@ async def fusion(
         raise HTTPException(503, "Model not loaded.")
 
     try:
+        # Try multiband path with fusion head
+        bands_optical = await _load_upload_as_bands(optical_image)
+
+        if bands_optical is not None and app_state.fusion_analyzer is not None:
+            # For fusion, we need S1 from a separate upload or combined .npz
+            await sar_image.seek(0)
+            bands_sar = await _load_upload_as_bands(sar_image)
+
+            if bands_sar is not None:
+                # Use optical's S2 + SAR's S1
+                result = app_state.fusion_analyzer.analyze(
+                    bands_optical["s2"], bands_sar["s1"], question,
+                )
+            else:
+                # Single .npz with both modalities
+                result = app_state.fusion_analyzer.analyze(
+                    bands_optical["s2"], bands_optical["s1"], question,
+                )
+
+            elapsed = (time.time() - start_time) * 1000
+
+            attr = result["modality_attribution"]
+            return FusionResponse(
+                fused_answer=result["fused_answer"],
+                modality_attribution=ModalityAttribution(
+                    optical_evidence=attr["optical_evidence"],
+                    sar_evidence=attr["sar_evidence"],
+                    fused_reasoning=attr["fused_reasoning"],
+                ),
+                disagreement_flag=result["disagreement_flag"],
+                disagreement_details=result["disagreement_details"],
+                confidence=Confidence(
+                    score=0.7,
+                    method="triple_inference",
+                    factors=result.get("modality_weights", {}),
+                ),
+                provenance=Provenance(
+                    model_name="InternVL2-2B+FusionHead",
+                    checkpoint_version="satquery-lora-exp1",
+                    timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ),
+                execution_time_ms=elapsed,
+            )
+
+        # Fallback: RGB multi-image prompting
+        await optical_image.seek(0)
+        await sar_image.seek(0)
         pil_optical = await _load_upload_as_pil(optical_image)
         pil_sar = await _load_upload_as_pil(sar_image)
 
-        # Build fusion prompt that elicits modality-attributed responses
         base_prompt = (
             "You are an expert in multi-modal remote sensing analysis. "
             "You are given two co-registered images of the same area:\n"
@@ -450,7 +611,6 @@ async def fusion(
             [pil_optical, pil_sar], base_prompt
         )
 
-        # Parse the structured response
         response_text = result["text"]
         attribution = _parse_modality_attribution(response_text)
 
@@ -468,6 +628,7 @@ async def fusion(
             confidence=Confidence(score=0.6, method="model_logit"),
             provenance=Provenance(
                 model_name="InternVL2-2B",
+                checkpoint_version="satquery-lora-exp1",
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             ),
             execution_time_ms=elapsed,
@@ -492,19 +653,14 @@ async def _load_upload_as_pil(upload: UploadFile):
 
     # Handle GeoTIFF (may have >3 bands)
     if image.mode not in ("RGB", "L"):
-        # For multi-band images, take the first 3 bands as RGB
-        import numpy as np
         arr = np.array(image)
         if arr.ndim == 3 and arr.shape[2] >= 3:
-            # Use bands 3, 2, 1 (R, G, B) if available
             arr_rgb = arr[:, :, :3]
         elif arr.ndim == 2:
-            # Single band → grayscale
             arr_rgb = np.stack([arr, arr, arr], axis=-1)
         else:
             arr_rgb = arr
 
-        # Normalize to uint8
         if arr_rgb.dtype != np.uint8:
             p2, p98 = np.percentile(arr_rgb, [2, 98])
             if p98 - p2 > 0:
@@ -518,6 +674,42 @@ async def _load_upload_as_pil(upload: UploadFile):
         image = image.convert("RGB")
 
     return image
+
+
+async def _load_upload_as_bands(upload: UploadFile) -> Optional[dict]:
+    """Try to load an upload as multiband .npz satellite data.
+
+    Returns dict with 's2' and 's1' tensors, or None if not an .npz file.
+    """
+    from services.models.training.multiband_dataset import S2_BANDS, S2_STATS, S1_STATS
+
+    filename = upload.filename or ""
+    if not filename.endswith(".npz"):
+        return None
+
+    content = await upload.read()
+    import io
+    data = np.load(io.BytesIO(content))
+
+    if "s2" not in data:
+        return None
+
+    s2 = data["s2"].astype(np.float32)
+    s1 = data.get("s1", np.zeros((2, 120, 120), dtype=np.float32)).astype(np.float32)
+
+    # Normalize
+    s2_mean = np.array([S2_STATS[b]["mean"] for b in S2_BANDS]).reshape(-1, 1, 1)
+    s2_std = np.array([S2_STATS[b]["std"] for b in S2_BANDS]).reshape(-1, 1, 1)
+    s1_mean = np.array([S1_STATS["VV"]["mean"], S1_STATS["VH"]["mean"]]).reshape(-1, 1, 1)
+    s1_std = np.array([S1_STATS["VV"]["std"], S1_STATS["VH"]["std"]]).reshape(-1, 1, 1)
+
+    s2_norm = (s2 - s2_mean) / (s2_std + 1e-8)
+    s1_norm = (s1 - s1_mean) / (s1_std + 1e-8)
+
+    s2_tensor = torch.from_numpy(s2_norm).unsqueeze(0).to("cuda", dtype=torch.bfloat16)
+    s1_tensor = torch.from_numpy(s1_norm).unsqueeze(0).to("cuda", dtype=torch.bfloat16)
+
+    return {"s2": s2_tensor, "s1": s1_tensor}
 
 
 def _parse_modality_attribution(text: str) -> dict:

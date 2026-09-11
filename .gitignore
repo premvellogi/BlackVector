@@ -1,4 +1,4 @@
-# Python
+# Python & Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,32 +20,64 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual Environments
 satquery_env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+.venv/
+.venv312/
+.venv_local/
 
-# Model weights & checkpoints (large binary files)
+# UI Node modules & build outputs
+satquery_ui/node_modules/
+satquery_ui/dist/
+satquery_ui/.vite/
+node_modules/
+
+# Model weights & Checkpoints (large binary files)
 models/
 checkpoints/
-
-# Bulk data files (not code)
-data/bigearthnet_txt/
-data/imagery_cache/
-data/training/*.jsonl
-data/training/*.json
-*.npz
-*.parquet
+*.pt
 *.pth
 *.bin
 *.safetensors
+*.onnx
+yolov8x-obb.pt
+
+# Bulk datasets, raw imagery, and temporary data patches
+data/bigearthnet_txt/
+data/imagery_cache/
+data/temporal_pairs/
+data/training/
+data/training_exp1/
+data/training_exp2/
+data/training_exp3/
+data/training_sar/
+data/sampled_patches.json
+patch_*
+S2A_MSIL2A_*
+*.npz
+*.parquet
 *.zst
 *.tar
+*.zip
+*.gz
+*.tif
+*.tiff
+outputs/
+eval_results_v2/
+evaluation/
+scratch/
+scratch_aichatprompt_raw.tsx
+
+# Miscellaneous temp image & markdown files
+ChatGPT Image*
+debug_what_model_sees.png
+Pasted markdown*
 
 # Keep data scripts tracked (they ARE code)
 !data/scripts/
+!contracts/
 
 # Testing & IDE
 .pytest_cache/
@@ -55,6 +87,6 @@ htmlcov/
 .idea/
 *.log
 
-# OS files
+# System & OS
 Thumbs.db
 .DS_Store

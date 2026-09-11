@@ -83,6 +83,10 @@ def main():
             "Never use this for a checkpoint presented as RS-adapted."
         ),
     )
+    parser.add_argument("--resume-from", type=str, default=None,
+                        help="Resume from a previous checkpoint (e.g., checkpoints/satquery-lora-exp2/best)")
+    parser.add_argument("--save-per-epoch", action="store_true",
+                        help="Save a checkpoint after each epoch")
     parser.add_argument("--log-interval", type=int, default=10)
     args = parser.parse_args()
 
@@ -123,7 +127,7 @@ def main():
     logger.info(f"Model loaded: {torch.cuda.memory_allocated()/1e9:.2f} GB VRAM")
 
     # =========================================================================
-    # 2. Attach LoRA
+    # 2. Attach LoRA (or resume from existing checkpoint)
     # =========================================================================
     model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 
@@ -131,22 +135,29 @@ def main():
     for param in model.vision_model.parameters():
         param.requires_grad = False
 
-    lora_config = LoraConfig(
-        r=args.lora_r,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=0.05,
-        target_modules=["wqkv", "wo"],  # InternLM2 attention modules
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
+    if args.resume_from:
+        # Resume from a previous LoRA checkpoint (e.g., Exp 2 best)
+        from peft import PeftModel
+        logger.info(f"Resuming from checkpoint: {args.resume_from}")
+        model = PeftModel.from_pretrained(model, args.resume_from, is_trainable=True)
+        logger.info("LoRA weights loaded from checkpoint (trainable=True)")
+    else:
+        lora_config = LoraConfig(
+            r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            lora_dropout=0.05,
+            target_modules=["wqkv", "wo"],  # InternLM2 attention modules
+            bias="none",
+            task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, lora_config)
 
-    model = get_peft_model(model, lora_config)
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in model.parameters())
     logger.info(f"LoRA attached: {trainable:,} trainable / {total:,} total ({trainable/total*100:.2f}%)")
 
     # =========================================================================
-    # 3. Create spectral adapter
+    # 3. Create spectral adapter (or load from checkpoint)
     # =========================================================================
     from services.models.core.spectral_adapter import DualModalityAdapter
 
@@ -156,7 +167,25 @@ def main():
         target_size=448,
     ).to("cuda", dtype=torch.bfloat16)
 
-    logger.info(f"Adapter params: {sum(p.numel() for p in adapter.parameters()):,}")
+    if args.resume_from:
+        adapter_path = os.path.join(args.resume_from, "spectral_adapter.pt")
+        if os.path.exists(adapter_path):
+            load_result = adapter.load_state_dict(
+                torch.load(adapter_path, map_location="cuda", weights_only=True),
+                strict=False,
+            )
+            if load_result.missing_keys:
+                logger.info(f"Adapter new keys (initialized): {load_result.missing_keys}")
+            if load_result.unexpected_keys:
+                logger.info(f"Adapter deprecated keys (ignored): {load_result.unexpected_keys}")
+            logger.info(f"Spectral adapter loaded from {adapter_path}")
+        else:
+            logger.warning(f"No spectral adapter at {adapter_path}, using fresh init")
+
+    # Log cross_attn trainability explicitly
+    cross_attn_params = sum(p.numel() for p in adapter.cross_attn.parameters())
+    logger.info(f"Adapter params: {sum(p.numel() for p in adapter.parameters()):,} "
+                f"(cross_attn: {cross_attn_params:,}, all trainable)")
 
     # =========================================================================
     # 4. Load dataset
@@ -234,6 +263,14 @@ def main():
 
     global_step = 0
     best_val_loss = float("inf")
+
+    if args.resume_from:
+        state_path = os.path.join(args.resume_from, "training_state.pt")
+        if os.path.exists(state_path):
+            st = torch.load(state_path, map_location="cpu", weights_only=False)
+            global_step = st.get("step", 0)
+            logger.info(f"Resumed global_step={global_step} from {state_path}")
+
     train_losses = []
     start_time = time.time()
 
@@ -379,6 +416,11 @@ def main():
 
         avg_epoch_loss = epoch_loss / max(1, epoch_steps)
         logger.info(f"Epoch {epoch + 1} complete | Avg loss: {avg_epoch_loss:.4f}")
+
+        # Per-epoch checkpoint
+        if getattr(args, 'save_per_epoch', False):
+            save_checkpoint(model, adapter, optimizer, global_step, args.output_dir, f"epoch-{epoch+1}")
+            logger.info(f"  Epoch {epoch+1} checkpoint saved.")
 
         if args.max_steps > 0 and global_step >= args.max_steps:
             break

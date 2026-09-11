@@ -1,0 +1,70 @@
+{
+  "results": [
+    {
+      "endpoint": "/health",
+      "input": "--",
+      "status": "PASS",
+      "latency_s": 0.0,
+      "details": "status=ready, adapter=loaded"
+    },
+    {
+      "endpoint": "/vqa",
+      "input": ".npz",
+      "status": "PASS",
+      "latency_s": 1.88,
+      "details": "answer='urban', tokens=1"
+    },
+    {
+      "endpoint": "/vqa",
+      "input": ".png",
+      "status": "PASS",
+      "latency_s": 0.79,
+      "details": "answer='Agricultural land'"
+    },
+    {
+      "endpoint": "/caption",
+      "input": ".npz",
+      "status": "PASS",
+      "latency_s": 8.34,
+      "details": "len=453 chars"
+    },
+    {
+      "endpoint": "/caption",
+      "input": ".png",
+      "status": "PASS",
+      "latency_s": 18.89,
+      "details": "len=1013 chars"
+    },
+    {
+      "endpoint": "/change",
+      "input": ".npz",
+      "status": "PASS",
+      "latency_s": 0.57,
+      "details": "detected=True, score=1.00"
+    },
+    {
+      "endpoint": "/change",
+      "input": ".png",
+      "status": "PASS",
+      "latency_s": 0.46,
+      "details": "detected=True"
+    },
+    {
+      "endpoint": "/fusion",
+      "input": ".npz",
+      "status": "PASS",
+      "latency_s": 1.12,
+      "details": "attr=populated, disagree=False"
+    },
+    {
+      "endpoint": "/fusion",
+      "input": ".png",
+      "status": "PASS",
+      "latency_s": 5.15,
+      "details": "fused_len=88"
+    }
+  ],
+  "passed": 9,
+  "failed": 0,
+  "total": 9
+}
