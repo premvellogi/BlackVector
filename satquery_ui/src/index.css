@@ -107,6 +107,11 @@ html, body {
   opacity: 0.65;
 }
 
+.video-bg.auth-mode {
+  filter: brightness(0.28) blur(4px);
+  opacity: 0.75;
+}
+
 /* ─────────────────────────────────────────
    CLEAN DARK SURFACE SYSTEM
    (NOT glassmorphism — for composer, sidebar, cards)

@@ -27,9 +27,10 @@ const HERO_FONT_STYLE: React.CSSProperties = {
 interface HeroSectionProps {
   onSubmit: (query: string, files: any[], task: string | null) => void
   githubUrl?: string
+  onLoginClick?: () => void
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onSubmit, githubUrl: _githubUrl }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ onSubmit, githubUrl: _githubUrl, onLoginClick }) => {
   return (
     <div className="relative min-h-screen w-full flex flex-col overflow-x-hidden">
       {/*
@@ -45,7 +46,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSubmit, githubUrl: _
       />
 
       {/* Floating Navbar */}
-      <Navbar githubUrl={_githubUrl} />
+      <Navbar githubUrl={_githubUrl} onLoginClick={onLoginClick} />
 
       {/* ── Center column: heading + composer ── */}
       <main

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import HeroSection from './components/HeroSection'
 import WorkspaceView from './components/WorkspaceView'
+// import { AuthModal } from './components/auth/AuthModal'  // ← TEMPORARILY DISABLED: auth bypassed
 import './index.css'
 
 /* ─────────────────────────────────────────────────────────
@@ -510,6 +511,9 @@ export function App() {
 
   return (
     <>
+      {/* ── Auth Modal TEMPORARILY DISABLED — auth is bypassed ── */}
+      {/* <AuthModal /> */}
+
       {/* ── Global video background — never unmounted ── */}
       <video
         autoPlay loop muted playsInline

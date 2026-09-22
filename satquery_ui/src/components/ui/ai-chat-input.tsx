@@ -2,8 +2,10 @@
 
 import * as React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Mic, Paperclip, Send } from "lucide-react"
+import { Paperclip, Send } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
+import { useVoiceInput } from "@/hooks/useVoiceInput"
+import { VoiceInputButton } from "./VoiceInputButton"
 
 const PLACEHOLDERS = [
   "Ask about satellite imagery...",
@@ -27,6 +29,10 @@ const AIChatInput = ({ onSubmit }: AIChatInputProps) => {
   const [files, setFiles] = useState<File[]>([])
   const wrapperRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const lastConsumedTranscriptRef = useRef("")
+
+  /* ── Voice input hook ── */
+  const voice = useVoiceInput()
 
   /* Cycle placeholder text when input is inactive */
   useEffect(() => {
@@ -58,10 +64,13 @@ const AIChatInput = ({ onSubmit }: AIChatInputProps) => {
 
   const handleSend = () => {
     if (!inputValue.trim() && files.length === 0) return
+    voice.stopListening()
     onSubmit?.(inputValue.trim(), files, null)
     setInputValue("")
     setFiles([])
     setIsActive(false)
+    lastConsumedTranscriptRef.current = ""
+    voice.reset()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -122,6 +131,24 @@ const AIChatInput = ({ onSubmit }: AIChatInputProps) => {
   }
 
   const canSend = inputValue.trim().length > 0 || files.length > 0
+
+  /* ── Sync voice transcript into input ── */
+  useEffect(() => {
+    if (voice.transcript && voice.transcript !== lastConsumedTranscriptRef.current) {
+      console.log('[AIChatInput] Consuming transcript:', voice.transcript)
+      lastConsumedTranscriptRef.current = voice.transcript
+      setInputValue(prev => {
+        const separator = prev && !prev.endsWith(' ') ? ' ' : ''
+        return prev + separator + voice.transcript
+      })
+      // Clear consumed transcript without stopping the listening session.
+      // voice.reset() would kill the session — we only want to clear the
+      // accumulated text so it doesn't get re-appended.
+      voice.clearTranscript()
+      setIsActive(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.transcript])
 
   return (
     <div className="w-full">
@@ -223,16 +250,35 @@ const AIChatInput = ({ onSubmit }: AIChatInputProps) => {
               </div>
             </div>
 
-            {/* Voice */}
-            <button
-              className="flex items-center justify-center rounded-full hover:bg-white/[0.09] transition-colors flex-shrink-0"
-              style={{ width: 44, height: 44, minWidth: 44 }}
-              title="Voice input"
-              type="button"
-              tabIndex={-1}
-            >
-              <Mic size={22} style={{ color: "rgba(255,255,255,0.60)" }} />
-            </button>
+            {/* Voice input */}
+            <VoiceInputButton
+              isSupported={voice.isSupported}
+              isListening={voice.isListening}
+              error={voice.error}
+              onToggle={voice.toggleListening}
+            />
+
+            {/* Interim voice transcript indicator */}
+            {voice.isListening && voice.interimTranscript && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: -28,
+                  left: 60,
+                  right: 100,
+                  fontSize: 12,
+                  color: 'rgba(255,255,255,0.35)',
+                  fontStyle: 'italic',
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}
+              >
+                {voice.interimTranscript}
+              </div>
+            )}
 
             {/* Send */}
             <button

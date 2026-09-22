@@ -79,55 +79,27 @@ const Logo = () => {
     <a
       href="#"
       onClick={(e) => e.preventDefault()}
-      className="flex items-center gap-3 py-2 relative z-20"
+      className="flex items-center gap-2.5 py-2 relative z-20"
     >
-      {/* Orbital icon — 32px */}
-      <div className="relative w-8 h-8 flex-shrink-0">
-        <span
-          className="absolute rounded-full bg-white"
-          style={{
-            width: 6,
-            height: 6,
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%,-50%)",
-          }}
-        />
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 32 32"
-          fill="none"
-          className="absolute inset-0"
-        >
-          <ellipse
-            cx="16"
-            cy="16"
-            rx="12"
-            ry="5"
-            stroke="rgba(255,255,255,0.40)"
-            strokeWidth="1.3"
-            transform="rotate(-35 16 16)"
-          />
-          <ellipse
-            cx="16"
-            cy="16"
-            rx="12"
-            ry="5"
-            stroke="rgba(255,255,255,0.18)"
-            strokeWidth="0.9"
-            transform="rotate(35 16 16)"
-          />
-        </svg>
-      </div>
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="font-semibold text-[17px] tracking-tight text-white whitespace-pre"
-        style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+      <img
+        src="/satquery-icon.png"
+        alt="SatQuery AI"
+        className="flex-shrink-0"
+        style={{
+          height: '28px',
+          width: '28px',
+          objectFit: 'contain',
+          filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+          imageRendering: 'auto',
+        }}
+        draggable={false}
+      />
+      <span
+        className="text-white/90 text-[15px] font-semibold tracking-tight whitespace-nowrap"
+        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
       >
         SatQuery AI
-      </motion.span>
+      </span>
     </a>
   );
 };
@@ -142,35 +114,19 @@ const LogoIcon = () => {
       onClick={(e) => e.preventDefault()}
       className="flex items-center justify-center py-2 relative z-20"
     >
-      <div className="relative w-8 h-8 flex-shrink-0">
-        <span
-          className="absolute rounded-full bg-white"
-          style={{
-            width: 6,
-            height: 6,
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%,-50%)",
-          }}
-        />
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 32 32"
-          fill="none"
-          className="absolute inset-0"
-        >
-          <ellipse
-            cx="16"
-            cy="16"
-            rx="12"
-            ry="5"
-            stroke="rgba(255,255,255,0.40)"
-            strokeWidth="1.3"
-            transform="rotate(-35 16 16)"
-          />
-        </svg>
-      </div>
+      <img
+        src="/satquery-icon.png"
+        alt="SatQuery AI"
+        className="flex-shrink-0"
+        style={{
+          height: '24px',
+          width: '24px',
+          objectFit: 'contain',
+          filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+          imageRendering: 'auto',
+        }}
+        draggable={false}
+      />
     </a>
   );
 };

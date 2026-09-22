@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../auth/AuthProvider';
+import { useAuthModal } from '../auth/AuthModalContext';
 
 /* ─────────────────────────────────────────────────────────────
    Animated Nav Link — slide-up on hover
@@ -40,12 +42,29 @@ const AnimatedNavLink = ({
 ───────────────────────────────────────────────────────────── */
 interface NavbarProps {
   githubUrl?: string;
+  onLoginClick?: () => void;
 }
 
-export function Navbar({ githubUrl = 'https://github.com' }: NavbarProps) {
+export function Navbar({ githubUrl = 'https://github.com', onLoginClick }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [borderRadius, setBorderRadius] = useState('9999px');
   const shapeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { user, signOut } = useAuth();
+  const { openAuthModal } = useAuthModal();
+
+  const userName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split('@')[0] ||
+    'User';
+
+  const userInitials = userName
+    .split(' ')
+    .filter(Boolean)
+    .map((p: string) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'U';
 
   useEffect(() => {
     if (shapeTimeoutRef.current) clearTimeout(shapeTimeoutRef.current);
@@ -81,9 +100,83 @@ export function Navbar({ githubUrl = 'https://github.com' }: NavbarProps) {
     </div>
   );
 
-  /* ── Login button ── */
-  const loginBtn = (
+  /* ── Auth button / User badge ── */
+  const authBtn = user ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: '6px 12px',
+          borderRadius: 9999,
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.12)',
+        }}
+      >
+        <div
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 10,
+            fontWeight: 700,
+            color: '#fff',
+          }}
+        >
+          {userInitials}
+        </div>
+        <span
+          style={{
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: 'rgba(255,255,255,0.9)',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            maxWidth: 110,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {userName}
+        </span>
+      </div>
+      <button
+        onClick={() => signOut()}
+        style={{
+          padding: '8px 14px',
+          fontSize: 12,
+          border: '1px solid rgba(255,255,255,0.14)',
+          background: 'rgba(255,255,255,0.04)',
+          color: 'rgba(255,255,255,0.65)',
+          borderRadius: 9999,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          transition: 'all 0.2s',
+          fontFamily: 'Inter, system-ui, sans-serif',
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.4)';
+          (e.currentTarget as HTMLButtonElement).style.color = '#fca5a5';
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.14)';
+          (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.65)';
+        }}
+      >
+        Sign Out
+      </button>
+    </div>
+  ) : (
     <button
+      onClick={() => {
+        if (onLoginClick) onLoginClick();
+        else openAuthModal('login');
+      }}
       style={{
         padding: '10px 20px',
         fontSize: 13,
@@ -105,7 +198,7 @@ export function Navbar({ githubUrl = 'https://github.com' }: NavbarProps) {
         (e.currentTarget as HTMLButtonElement).style.color = '#d1d5db';
       }}
     >
-      LogIn
+      Log In
     </button>
   );
 
@@ -196,7 +289,7 @@ export function Navbar({ githubUrl = 'https://github.com' }: NavbarProps) {
 
         {/* Desktop CTAs */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} className="hidden sm:flex">
-          {loginBtn}
+          {authBtn}
           {githubBtn}
         </div>
 
@@ -236,7 +329,7 @@ export function Navbar({ githubUrl = 'https://github.com' }: NavbarProps) {
           ))}
         </nav>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 16, width: '100%' }}>
-          {loginBtn}
+          {authBtn}
           {githubBtn}
         </div>
       </div>
